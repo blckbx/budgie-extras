@@ -2,7 +2,8 @@ using Gtk;
 using Math;
 using Cairo;
 using Wnck;
-
+using Soup;
+using GLib;
 
 /*
 * BudgieShowTimeII
@@ -37,6 +38,9 @@ namespace  ShowTime {
     private int linespacing;
     private Label timelabel;
     private Label datelabel;
+    private Label blocklabel;
+    private Label feeslabel;
+    private Label pricelabel;
     GLib.Settings showtime_settings;
     bool subwindow;
     string win_name;
@@ -56,8 +60,14 @@ namespace  ShowTime {
             var datefont = new Pango.FontDescription().from_string(dateprops);
             Pango.Context t = timelabel.get_pango_context();
             Pango.Context d = datelabel.get_pango_context();
+            Pango.Context b = blocklabel.get_pango_context();
+            Pango.Context f = feeslabel.get_pango_context();
+            Pango.Context p = pricelabel.get_pango_context();
             t.set_font_description(timefont);
             d.set_font_description(datefont);
+            b.set_font_description(datefont);
+            f.set_font_description(datefont);
+            p.set_font_description(datefont);
             timelabel.set_margin_end (10);
             get_spacing(screen);
         }
@@ -85,7 +95,7 @@ namespace  ShowTime {
         }
 
         public void get_hexcolor(
-            string currtime, string currdate
+            string currtime, string currdate, string blockheight, string fees, string price
         ) {
             timelabel.set_markup (
                 "<span foreground=\"" +
@@ -93,10 +103,21 @@ namespace  ShowTime {
                 "</span>"
             );
             datelabel.set_markup (
-                "<span foreground=\"" +
-                datefontcolor + "\">" + currdate +
-                "</span>"
+                "<span foreground=\"" + datefontcolor + "\">" + currdate + "</span>" 
             );
+            if(blockheight != "0") {
+                blocklabel.set_markup (
+                    "<span foreground=\"" + datefontcolor + "\">₿ " + blockheight + " </span>"
+                );
+                feeslabel.set_markup (
+                    "<span foreground=\"" + datefontcolor + "\">⛓ " + fees + " </span>"
+                );
+            }
+             if(price != "0") {
+                pricelabel.set_markup (
+                    "<span foreground=\"" + datefontcolor + "\">$ " + price + " </span>"
+                );
+            }           
         }
     }
 
@@ -182,9 +203,15 @@ namespace  ShowTime {
             var maingrid = new Grid();
             timelabel = new Label("");
             datelabel = new Label("");
+            blocklabel = new Label("");
+            feeslabel = new Label("");
+            pricelabel = new Label("");
             // position
             maingrid.attach(timelabel, 0, 0, 1, 1);
             maingrid.attach(datelabel, 0, 1, 1, 1);
+            maingrid.attach(blocklabel, 0, 2, 1, 1);
+            maingrid.attach(feeslabel, 0, 3, 1, 1);
+            maingrid.attach(pricelabel, 0, 4, 1, 1);
             this.add(maingrid);
             string[] bind = {
                 "leftalign", "twelvehrs", "xposition",
@@ -439,6 +466,9 @@ namespace  ShowTime {
             if (get_leftalign()) {al = 0;}
             timelabel.xalign = al;
             datelabel.xalign = al;
+            blocklabel.xalign = al;
+            feeslabel.xalign = al;
+            pricelabel.xalign = al;
             // showdate
             linespacing = showtime_settings.get_int("linespacing");
             twelvehrs = showtime_settings.get_boolean("twelvehrs");
@@ -447,9 +477,62 @@ namespace  ShowTime {
         }
 
         private void update_interface () {
-            var now = new DateTime.now_local();
-            string datestring = now.format(dateformat);
-            appearance.get_hexcolor(get_localtime(now), datestring);
+            try {            
+                var now = new DateTime.now_local();
+                string datestring = now.format(dateformat);
+
+                string blockheight = "0";
+                string fees = "0";
+                string price = "0";
+
+                var session = new Soup.Session();
+                // use local Tor network
+                session.proxy_resolver = new GLib.SimpleProxyResolver(
+                    "socks://127.0.0.1:9050",
+                    { "localhost", "127.0.0.1", null }
+                );
+                var msg = new Message ("GET", "https://bitcoinexplorer.org/api/blocks/tip");
+                session.send_message(msg);
+
+                // extract blockheight from json response
+                var parser = new Json.Parser();
+                parser.load_from_data ((string) msg.response_body.data, -1);
+                var root_object = parser.get_root().get_object();
+
+                blockheight = root_object.get_int_member("height").to_string();
+
+                msg = new Message ("GET", "https://bitcoinexplorer.org/api/mempool/fees");
+                session.send_message(msg);
+
+                // extract fees from json response
+                parser = new Json.Parser ();
+                parser.load_from_data ((string)msg.response_body.data, -1);
+
+                root_object = parser.get_root ().get_object ();
+                var next_block = root_object.get_object_member ("nextBlock");
+                //int64 smart = next_block.get_int_member ("smart");
+                int64 min = next_block.get_int_member ("min");
+                int64 max = next_block.get_int_member ("max");
+                int64 median = next_block.get_int_member ("median");                
+
+                fees = min.to_string() + " · " + median.to_string() + " · " + max.to_string();
+
+
+                msg = new Message ("GET", "https://mempool.space/api/v1/prices");
+                session.send_message(msg);
+
+                // extract price from json response
+                parser = new Json.Parser ();
+                parser.load_from_data ((string)msg.response_body.data, -1);
+                root_object = parser.get_root ().get_object ();
+                price = root_object.get_int_member("USD").to_string();
+
+                appearance.get_hexcolor(get_localtime(now), datestring, blockheight, fees, price);
+
+                session.abort();
+            } catch (Error e) {
+                print ("Error: %s\n", e.message);
+            }                
         }
 
         private int convert_remainder_topositive (double subj, double rem) {
