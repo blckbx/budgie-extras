@@ -530,8 +530,9 @@ namespace  ShowTime {
                     parser.load_from_data ((string)msg.response_body.data, -1);
                     var root_object = parser.get_root ().get_object ();
                     var usd = root_object.get_object_member ("USD");
-                    int last = (int) usd.get_double_member ("last"); 
-                    price = last.to_string();
+                    int last = (int) usd.get_double_member ("last");
+                    int satsperdollar = (int) (1.0 / last * 100000000);
+                    price = "sat " + satsperdollar.to_string() + " | $ " + last.to_string();
                 }
 
                 appearance.get_hexcolor(get_localtime(now), datestring, blockheight, fees, price);
