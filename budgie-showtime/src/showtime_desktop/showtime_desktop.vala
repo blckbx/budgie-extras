@@ -494,38 +494,45 @@ namespace  ShowTime {
                 var msg = new Message ("GET", "https://bitcoinexplorer.org/api/blocks/tip");
                 session.send_message(msg);
 
-                // extract blockheight from json response
-                var parser = new Json.Parser();
-                parser.load_from_data ((string) msg.response_body.data, -1);
-                var root_object = parser.get_root().get_object();
+                if (msg.status_code == 200) {
+                    // extract blockheight from json response
+                    var parser = new Json.Parser();
+                    parser.load_from_data ((string) msg.response_body.data, -1);
+                    var root_object = parser.get_root().get_object();
 
-                blockheight = root_object.get_int_member("height").to_string();
+                    blockheight = root_object.get_int_member("height").to_string();
+                }
 
                 msg = new Message ("GET", "https://bitcoinexplorer.org/api/mempool/fees");
                 session.send_message(msg);
 
-                // extract fees from json response
-                parser = new Json.Parser ();
-                parser.load_from_data ((string)msg.response_body.data, -1);
+                if (msg.status_code == 200) {
+                    // extract fees from json response
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg.response_body.data, -1);
 
-                root_object = parser.get_root ().get_object ();
-                var next_block = root_object.get_object_member ("nextBlock");
-                //int64 smart = next_block.get_int_member ("smart");
-                int64 min = next_block.get_int_member ("min");
-                int64 max = next_block.get_int_member ("max");
-                int64 median = next_block.get_int_member ("median");                
+                    var root_object = parser.get_root ().get_object ();
+                    var next_block = root_object.get_object_member ("nextBlock");
+                    //int64 smart = next_block.get_int_member ("smart");
+                    int64 min = next_block.get_int_member ("min");
+                    int64 max = next_block.get_int_member ("max");
+                    int64 median = next_block.get_int_member ("median");                
 
-                fees = min.to_string() + " · " + median.to_string() + " · " + max.to_string();
+                    fees = min.to_string() + " · " + median.to_string() + " · " + max.to_string();
+                }
 
-
-                msg = new Message ("GET", "https://mempool.space/api/v1/prices");
+                msg = new Message ("GET", "https://blockchain.info/ticker");
                 session.send_message(msg);
 
-                // extract price from json response
-                parser = new Json.Parser ();
-                parser.load_from_data ((string)msg.response_body.data, -1);
-                root_object = parser.get_root ().get_object ();
-                price = root_object.get_int_member("USD").to_string();
+                if (msg.status_code == 200) {
+                    // extract price from json response
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg.response_body.data, -1);
+                    var root_object = parser.get_root ().get_object ();
+                    var usd = root_object.get_object_member ("USD");
+                    int last = (int) usd.get_double_member ("last"); 
+                    price = last.to_string();
+                }
 
                 appearance.get_hexcolor(get_localtime(now), datestring, blockheight, fees, price);
 
