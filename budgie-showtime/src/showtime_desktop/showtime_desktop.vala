@@ -41,6 +41,7 @@ namespace  ShowTime {
     private Label blocklabel;
     private Label feeslabel;
     private Label pricelabel;
+    private Label halvinglabel;
     GLib.Settings showtime_settings;
     bool subwindow;
     string win_name;
@@ -63,11 +64,13 @@ namespace  ShowTime {
             Pango.Context b = blocklabel.get_pango_context();
             Pango.Context f = feeslabel.get_pango_context();
             Pango.Context p = pricelabel.get_pango_context();
+            Pango.Context h = halvinglabel.get_pango_context();
             t.set_font_description(timefont);
             d.set_font_description(datefont);
             b.set_font_description(datefont);
             f.set_font_description(datefont);
             p.set_font_description(datefont);
+            h.set_font_description(datefont);
             timelabel.set_margin_end (10);
             get_spacing(screen);
         }
@@ -95,7 +98,7 @@ namespace  ShowTime {
         }
 
         public void get_hexcolor(
-            string currtime, string currdate, string blockheight, string fees, string price
+            string currtime, string currdate, string blockheight, string fees, string price, string halving
         ) {
             timelabel.set_markup (
                 "<span foreground=\"" +
@@ -107,17 +110,24 @@ namespace  ShowTime {
             );
             if(blockheight != "0") {
                 blocklabel.set_markup (
-                    "<span foreground=\"" + datefontcolor + "\">₿ " + blockheight + " </span>"
-                );
-                feeslabel.set_markup (
-                    "<span foreground=\"" + datefontcolor + "\">⛓ " + fees + " </span>"
+                    "<span foreground=\"" + datefontcolor + "\">" + blockheight + " </span>"
                 );
             }
-             if(price != "0") {
-                pricelabel.set_markup (
-                    "<span foreground=\"" + datefontcolor + "\">$ " + price + " </span>"
+            if(fees != "0"){
+                feeslabel.set_markup (
+                    "<span foreground=\"" + datefontcolor + "\">" + fees + " </span>"
                 );
-            }           
+            }
+            if(price != "0") {
+                pricelabel.set_markup (
+                    "<span foreground=\"" + datefontcolor + "\">" + price + " </span>"
+                );
+            }
+            if(halving != "0") {
+                halvinglabel.set_markup (
+                    "<span foreground=\"" + datefontcolor + "\">" + halving + " </span>"
+                );
+            }
         }
     }
 
@@ -206,12 +216,14 @@ namespace  ShowTime {
             blocklabel = new Label("");
             feeslabel = new Label("");
             pricelabel = new Label("");
+            halvinglabel = new Label("");
             // position
             maingrid.attach(timelabel, 0, 0, 1, 1);
             maingrid.attach(datelabel, 0, 1, 1, 1);
             maingrid.attach(blocklabel, 0, 2, 1, 1);
             maingrid.attach(feeslabel, 0, 3, 1, 1);
             maingrid.attach(pricelabel, 0, 4, 1, 1);
+            maingrid.attach(halvinglabel, 0, 5, 1, 1);
             this.add(maingrid);
             string[] bind = {
                 "leftalign", "twelvehrs", "xposition",
@@ -469,6 +481,7 @@ namespace  ShowTime {
             blocklabel.xalign = al;
             feeslabel.xalign = al;
             pricelabel.xalign = al;
+            halvinglabel.xalign = al;
             // showdate
             linespacing = showtime_settings.get_int("linespacing");
             twelvehrs = showtime_settings.get_boolean("twelvehrs");
@@ -484,13 +497,17 @@ namespace  ShowTime {
                 string blockheight = "0";
                 string fees = "0";
                 string price = "0";
+                string halving = "0";
 
                 var session = new Soup.Session();
-                // use local Tor network
+                // showcase: use local Tor network for calling external sources
+                // replace "bitcoinexplorer.org" with local btc-rpc-explorer instance
+                // for perfect privacy
                 session.proxy_resolver = new GLib.SimpleProxyResolver(
                     "socks://127.0.0.1:9050",
                     { "localhost", "127.0.0.1", null }
                 );
+
                 var msg = new Message ("GET", "https://bitcoinexplorer.org/api/blocks/tip");
                 session.send_message(msg);
 
@@ -499,8 +516,9 @@ namespace  ShowTime {
                     var parser = new Json.Parser();
                     parser.load_from_data ((string) msg.response_body.data, -1);
                     var root_object = parser.get_root().get_object();
+                    int height = (int) root_object.get_int_member("height");
 
-                    blockheight = root_object.get_int_member("height").to_string();
+                    blockheight = "⛓ " + height.to_string();
                 }
 
                 msg = new Message ("GET", "https://bitcoinexplorer.org/api/mempool/fees");
@@ -513,13 +531,26 @@ namespace  ShowTime {
 
                     var root_object = parser.get_root ().get_object ();
                     var next_block = root_object.get_object_member ("nextBlock");
-                    //int64 smart = next_block.get_int_member ("smart");
                     int64 min = next_block.get_int_member ("min");
                     int64 max = next_block.get_int_member ("max");
                     int64 median = next_block.get_int_member ("median");                
 
-                    fees = min.to_string() + " · " + median.to_string() + " · " + max.to_string();
+                    fees = "fees " + min.to_string() + " · " + median.to_string() + " · " + max.to_string();
                 }
+
+                msg = new Message ("GET", "https://bitcoinexplorer.org/api/blockchain/next-halving");
+                session.send_message(msg);
+
+                if (msg.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg.response_body.data, -1);
+
+                    var root_object = parser.get_root ().get_object ();
+                    string nextHalvingEst = root_object.get_string_member ("timeUntilNextHalving");
+                    string formattedString = nextHalvingEst.replace("years", "y").replace("months","m").replace("days","d");
+
+                    halving = "½ " + formattedString;
+                }   
 
                 msg = new Message ("GET", "https://blockchain.info/ticker");
                 session.send_message(msg);
@@ -532,10 +563,11 @@ namespace  ShowTime {
                     var usd = root_object.get_object_member ("USD");
                     int last = (int) usd.get_double_member ("last");
                     int satsperdollar = (int) (1.0 / last * 100000000);
+
                     price = "sat " + satsperdollar.to_string() + " | $ " + last.to_string();
                 }
 
-                appearance.get_hexcolor(get_localtime(now), datestring, blockheight, fees, price);
+                appearance.get_hexcolor(get_localtime(now), datestring, blockheight, fees, price, halving);
 
                 session.abort();
             } catch (Error e) {
