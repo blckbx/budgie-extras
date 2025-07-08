@@ -59,6 +59,9 @@ namespace  ShowTime {
             // set fonts
             var timefont = new Pango.FontDescription().from_string(timeprops);
             var datefont = new Pango.FontDescription().from_string(dateprops);
+            var infofont = new Pango.FontDescription().from_string(dateprops);
+            int size = datefont.get_size();
+            infofont.set_size(size - 5 * Pango.SCALE);
             Pango.Context t = timelabel.get_pango_context();
             Pango.Context d = datelabel.get_pango_context();
             Pango.Context b = blocklabel.get_pango_context();
@@ -67,10 +70,10 @@ namespace  ShowTime {
             Pango.Context h = halvinglabel.get_pango_context();
             t.set_font_description(timefont);
             d.set_font_description(datefont);
-            b.set_font_description(datefont);
-            f.set_font_description(datefont);
-            p.set_font_description(datefont);
-            h.set_font_description(datefont);
+            b.set_font_description(infofont);
+            f.set_font_description(infofont);
+            p.set_font_description(infofont);
+            h.set_font_description(infofont);
             timelabel.set_margin_end (10);
             get_spacing(screen);
         }
@@ -98,7 +101,13 @@ namespace  ShowTime {
         }
 
         public void get_hexcolor(
-            string currtime, string currdate, string blockheight, string fees, string price, string halving
+            string currtime, 
+            string currdate, 
+            string blockheight, 
+            string fees, 
+            string txcount, 
+            string price, 
+            string halving
         ) {
             timelabel.set_markup (
                 "<span foreground=\"" +
@@ -113,14 +122,9 @@ namespace  ShowTime {
                     "<span foreground=\"" + datefontcolor + "\">" + blockheight + " </span>"
                 );
             }
-            if(fees != "0"){
+            if(fees != "0" || txcount != "0"){
                 feeslabel.set_markup (
-                    "<span foreground=\"" + datefontcolor + "\">" + fees + " </span>"
-                );
-            }
-            if(price != "0") {
-                pricelabel.set_markup (
-                    "<span foreground=\"" + datefontcolor + "\">" + price + " </span>"
+                    "<span foreground=\"" + datefontcolor + "\">" + fees + " | # " + txcount +" </span>"
                 );
             }
             if(halving != "0") {
@@ -128,6 +132,11 @@ namespace  ShowTime {
                     "<span foreground=\"" + datefontcolor + "\">" + halving + " </span>"
                 );
             }
+            if(price != "0") {
+                pricelabel.set_markup (
+                    "<span foreground=\"" + datefontcolor + "\">" + price + " </span>"
+                );
+            }            
         }
     }
 
@@ -221,9 +230,9 @@ namespace  ShowTime {
             maingrid.attach(timelabel, 0, 0, 1, 1);
             maingrid.attach(datelabel, 0, 1, 1, 1);
             maingrid.attach(blocklabel, 0, 2, 1, 1);
-            maingrid.attach(feeslabel, 0, 3, 1, 1);
-            maingrid.attach(pricelabel, 0, 4, 1, 1);
-            maingrid.attach(halvinglabel, 0, 5, 1, 1);
+            maingrid.attach(halvinglabel, 0, 3, 1, 1);
+            maingrid.attach(feeslabel, 0, 4, 1, 1);            
+            maingrid.attach(pricelabel, 0, 5, 1, 1);
             this.add(maingrid);
             string[] bind = {
                 "leftalign", "twelvehrs", "xposition",
@@ -498,6 +507,7 @@ namespace  ShowTime {
                 string fees = "0";
                 string price = "0";
                 string halving = "0";
+                string txcount = "0";
 
                 var session = new Soup.Session();
                 // showcase: use local Tor network for calling external sources
@@ -535,8 +545,21 @@ namespace  ShowTime {
                     int64 max = next_block.get_int_member ("max");
                     int64 median = next_block.get_int_member ("median");                
 
-                    fees = "fees " + min.to_string() + " · " + median.to_string() + " · " + max.to_string();
+                    fees = "⇅ " + min.to_string() + " · " + median.to_string() + " · " + max.to_string();
                 }
+
+                msg = new Message ("GET", "https://bitcoinexplorer.org/api/mempool/summary");
+                session.send_message(msg);
+
+                if (msg.status_code == 200) {
+                    // extract fees from json response
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg.response_body.data, -1);
+
+                    var root_object = parser.get_root ().get_object ();
+                    int count = (int) root_object.get_int_member ("size");
+                    txcount = count.to_string();
+                }   
 
                 msg = new Message ("GET", "https://bitcoinexplorer.org/api/blockchain/next-halving");
                 session.send_message(msg);
@@ -546,10 +569,12 @@ namespace  ShowTime {
                     parser.load_from_data ((string)msg.response_body.data, -1);
 
                     var root_object = parser.get_root ().get_object ();
-                    string nextHalvingEst = root_object.get_string_member ("timeUntilNextHalving");
-                    string formattedString = nextHalvingEst.replace("years", "y").replace("months","m").replace("days","d");
+                    //string nextHalvingEst = root_object.get_string_member ("timeUntilNextHalving");
+                    //string formattedString = nextHalvingEst.replace("years", "y").replace("months","m").replace("days","d");
+                    //halving = "½ " + formattedString;
 
-                    halving = "½ " + formattedString;
+                    int blocksleft = (int) root_object.get_int_member("blocksUntilNextHalving");
+                    halving = "÷ T - " + blocksleft.to_string();
                 }   
 
                 msg = new Message ("GET", "https://blockchain.info/ticker");
@@ -564,10 +589,10 @@ namespace  ShowTime {
                     int last = (int) usd.get_double_member ("last");
                     int satsperdollar = (int) (1.0 / last * 100000000);
 
-                    price = "sat " + satsperdollar.to_string() + " | $ " + last.to_string();
+                    price = "sat/$ " + satsperdollar.to_string() + " | $/₿ " + last.to_string();
                 }
 
-                appearance.get_hexcolor(get_localtime(now), datestring, blockheight, fees, price, halving);
+                appearance.get_hexcolor(get_localtime(now), datestring, blockheight, fees, txcount, price, halving);
 
                 session.abort();
             } catch (Error e) {
