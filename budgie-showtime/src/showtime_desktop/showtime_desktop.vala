@@ -110,9 +110,7 @@ namespace  ShowTime {
             string halving
         ) {
             timelabel.set_markup (
-                "<span foreground=\"" +
-                timefontcolor + "\">" + currtime +
-                "</span>"
+                "<span foreground=\"" + timefontcolor + "\">" + currtime + "</span>"
             );
             datelabel.set_markup (
                 "<span foreground=\"" + datefontcolor + "\">" + currdate + "</span>" 
@@ -124,7 +122,7 @@ namespace  ShowTime {
             }
             if(fees != "0" || txcount != "0"){
                 feeslabel.set_markup (
-                    "<span foreground=\"" + datefontcolor + "\">" + fees + " | # " + txcount +" </span>"
+                    "<span foreground=\"" + datefontcolor + "\">" + fees + " | Σ " + txcount +" </span>"
                 );
             }
             if(halving != "0") {
@@ -231,8 +229,8 @@ namespace  ShowTime {
             maingrid.attach(datelabel, 0, 1, 1, 1);
             maingrid.attach(blocklabel, 0, 2, 1, 1);
             maingrid.attach(halvinglabel, 0, 3, 1, 1);
-            maingrid.attach(feeslabel, 0, 4, 1, 1);            
-            maingrid.attach(pricelabel, 0, 5, 1, 1);
+            maingrid.attach(pricelabel, 0, 4, 1, 1);            
+            maingrid.attach(feeslabel, 0, 5, 1, 1); 
             this.add(maingrid);
             string[] bind = {
                 "leftalign", "twelvehrs", "xposition",
@@ -512,7 +510,7 @@ namespace  ShowTime {
                 var session = new Soup.Session();
                 // showcase: use local Tor network for calling external sources
                 // replace "bitcoinexplorer.org" with local btc-rpc-explorer instance
-                // for perfect privacy
+                // for better privacy
                 session.proxy_resolver = new GLib.SimpleProxyResolver(
                     "socks://127.0.0.1:9050",
                     { "localhost", "127.0.0.1", null }
@@ -545,7 +543,7 @@ namespace  ShowTime {
                     int64 max = next_block.get_int_member ("max");
                     int64 median = next_block.get_int_member ("median");                
 
-                    fees = "⇅ " + min.to_string() + " · " + median.to_string() + " · " + max.to_string();
+                    fees = "⧉ " + min.to_string() + " · " + median.to_string() + " · " + max.to_string();
                 }
 
                 msg = new Message ("GET", "https://bitcoinexplorer.org/api/mempool/summary");
@@ -569,10 +567,6 @@ namespace  ShowTime {
                     parser.load_from_data ((string)msg.response_body.data, -1);
 
                     var root_object = parser.get_root ().get_object ();
-                    //string nextHalvingEst = root_object.get_string_member ("timeUntilNextHalving");
-                    //string formattedString = nextHalvingEst.replace("years", "y").replace("months","m").replace("days","d");
-                    //halving = "½ " + formattedString;
-
                     int blocksleft = (int) root_object.get_int_member("blocksUntilNextHalving");
                     halving = "÷ T - " + blocksleft.to_string();
                 }   
@@ -589,7 +583,7 @@ namespace  ShowTime {
                     int last = (int) usd.get_double_member ("last");
                     int satsperdollar = (int) (1.0 / last * 100000000);
 
-                    price = "sat/$ " + satsperdollar.to_string() + " | $/₿ " + last.to_string();
+                    price = satsperdollar.to_string() + " sat | $ " + last.to_string();
                 }
 
                 appearance.get_hexcolor(get_localtime(now), datestring, blockheight, fees, txcount, price, halving);
