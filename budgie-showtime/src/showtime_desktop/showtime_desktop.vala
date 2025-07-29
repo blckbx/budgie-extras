@@ -41,7 +41,7 @@ namespace  ShowTime {
     private Label blocklabel;
     private Label feeslabel;
     private Label pricelabel;
-    private Label halvinglabel;
+    private Label hashratelabel;
     GLib.Settings showtime_settings;
     bool subwindow;
     string win_name;
@@ -67,7 +67,7 @@ namespace  ShowTime {
             Pango.Context b = blocklabel.get_pango_context();
             Pango.Context f = feeslabel.get_pango_context();
             Pango.Context p = pricelabel.get_pango_context();
-            Pango.Context h = halvinglabel.get_pango_context();
+            Pango.Context h = hashratelabel.get_pango_context();
             t.set_font_description(timefont);
             d.set_font_description(datefont);
             b.set_font_description(infofont);
@@ -107,7 +107,8 @@ namespace  ShowTime {
             string fees, 
             string txcount, 
             string price, 
-            string halving
+            int halving,
+            string hashrate
         ) {
             timelabel.set_markup (
                 "<span foreground=\"" + timefontcolor + "\">" + currtime + "</span>"
@@ -115,26 +116,30 @@ namespace  ShowTime {
             datelabel.set_markup (
                 "<span foreground=\"" + datefontcolor + "\">" + currdate + "</span>" 
             );
-            if(blockheight != "0") {
+            if(blockheight != 0 || halving != 0) {
                 blocklabel.set_markup (
-                    "<span foreground=\"" + datefontcolor + "\">" + blockheight + " </span>"
+                    "<span foreground=\"" + datefontcolor + "\">⛓ " + blockheight.to_string() +
+                                                            " | ÷ -" + halving.to_string() + " </span>"
                 );
             }
-            if(fees != "0" || txcount != "0"){
-                feeslabel.set_markup (
-                    "<span foreground=\"" + datefontcolor + "\">" + fees + " | Σ " + txcount +" </span>"
-                );
-            }
-            if(halving != "0") {
-                halvinglabel.set_markup (
-                    "<span foreground=\"" + datefontcolor + "\">" + halving + " </span>"
-                );
-            }
-            if(price != "0") {
+            if(price != 0) {
                 pricelabel.set_markup (
-                    "<span foreground=\"" + datefontcolor + "\">" + price + " </span>"
+                    "<span foreground=\"" + datefontcolor + "\">" + satsperdollar.to_string() + 
+                                                                " sat | $ " + price.to_string() + " </span>"
                 );
-            }            
+            }
+            if(max_fees != 0 || txcount != 0){
+                feeslabel.set_markup (
+                    "<span foreground=\"" + datefontcolor + "\">⧉ " + min_fees.to_string() + " · " + 
+                                            med_fees.to_string() + " · " + max_fees.to_string() + 
+                                            "  | Σ " + txcount.to_string() + " </span>"
+                );
+            }
+            if(hashrate != "0") {
+                hashratelabel.set_markup (
+                    "<span foreground=\"" + datefontcolor + "\">⚒ " + hashrate + " (30d) </span>"
+                );
+            }
         }
     }
 
@@ -223,14 +228,14 @@ namespace  ShowTime {
             blocklabel = new Label("");
             feeslabel = new Label("");
             pricelabel = new Label("");
-            halvinglabel = new Label("");
+            hashratelabel = new Label("");
             // position
             maingrid.attach(timelabel, 0, 0, 1, 1);
             maingrid.attach(datelabel, 0, 1, 1, 1);
             maingrid.attach(blocklabel, 0, 2, 1, 1);
-            maingrid.attach(halvinglabel, 0, 3, 1, 1);
+            maingrid.attach(hashratelabel, 0, 3, 1, 1);
             maingrid.attach(pricelabel, 0, 4, 1, 1);            
-            maingrid.attach(feeslabel, 0, 5, 1, 1); 
+            maingrid.attach(feeslabel, 0, 5, 1, 1);  
             this.add(maingrid);
             string[] bind = {
                 "leftalign", "twelvehrs", "xposition",
@@ -488,7 +493,7 @@ namespace  ShowTime {
             blocklabel.xalign = al;
             feeslabel.xalign = al;
             pricelabel.xalign = al;
-            halvinglabel.xalign = al;
+            hashratelabel.xalign = al;
             // showdate
             linespacing = showtime_settings.get_int("linespacing");
             twelvehrs = showtime_settings.get_boolean("twelvehrs");
@@ -501,11 +506,15 @@ namespace  ShowTime {
                 var now = new DateTime.now_local();
                 string datestring = now.format(dateformat);
 
-                string blockheight = "0";
-                string fees = "0";
-                string price = "0";
-                string halving = "0";
-                string txcount = "0";
+                int blockheight = 0;
+                int min_fees = 0;
+                int med_fees = 0;
+                int max_fees = 0;
+                int satsperdollar = 0;
+                int price = 0;
+                int halving = 0;
+                int txcount = 0;
+                string hashrate = "0";
 
                 var session = new Soup.Session();
                 // showcase: use local Tor network for calling external sources
@@ -524,9 +533,7 @@ namespace  ShowTime {
                     var parser = new Json.Parser();
                     parser.load_from_data ((string) msg.response_body.data, -1);
                     var root_object = parser.get_root().get_object();
-                    int height = (int) root_object.get_int_member("height");
-
-                    blockheight = "⛓ " + height.to_string();
+                    blockheight = (int) root_object.get_int_member("height");
                 }
 
                 msg = new Message ("GET", "https://bitcoinexplorer.org/api/mempool/fees");
@@ -539,11 +546,9 @@ namespace  ShowTime {
 
                     var root_object = parser.get_root ().get_object ();
                     var next_block = root_object.get_object_member ("nextBlock");
-                    int64 min = next_block.get_int_member ("min");
-                    int64 max = next_block.get_int_member ("max");
-                    int64 median = next_block.get_int_member ("median");                
-
-                    fees = "⧉ " + min.to_string() + " · " + median.to_string() + " · " + max.to_string();
+                    min_fees = (int) next_block.get_int_member ("min");
+                    max_fees = (int) next_block.get_int_member ("max");
+                    med_fees = (int) next_block.get_int_member ("median");
                 }
 
                 msg = new Message ("GET", "https://bitcoinexplorer.org/api/mempool/summary");
@@ -555,8 +560,7 @@ namespace  ShowTime {
                     parser.load_from_data ((string)msg.response_body.data, -1);
 
                     var root_object = parser.get_root ().get_object ();
-                    int count = (int) root_object.get_int_member ("size");
-                    txcount = count.to_string();
+                    txcount = (int) root_object.get_int_member ("size");
                 }   
 
                 msg = new Message ("GET", "https://bitcoinexplorer.org/api/blockchain/next-halving");
@@ -565,11 +569,9 @@ namespace  ShowTime {
                 if (msg.status_code == 200) {
                     var parser = new Json.Parser ();
                     parser.load_from_data ((string)msg.response_body.data, -1);
-
                     var root_object = parser.get_root ().get_object ();
-                    int blocksleft = (int) root_object.get_int_member("blocksUntilNextHalving");
-                    halving = "÷ T - " + blocksleft.to_string();
-                }   
+                    halving = (int) root_object.get_int_member("blocksUntilNextHalving");
+                }
 
                 msg = new Message ("GET", "https://blockchain.info/ticker");
                 session.send_message(msg);
@@ -586,7 +588,32 @@ namespace  ShowTime {
                     price = satsperdollar.to_string() + " sat | $ " + last.to_string();
                 }
 
-                appearance.get_hexcolor(get_localtime(now), datestring, blockheight, fees, txcount, price, halving);
+                msg = new Message ("GET", "https://bitcoinexplorer.org/api/mining/hashrate");
+                session.send_message(msg);
+
+                if (msg.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data((string)msg.response_body.data, -1);
+                    var root_object = parser.get_root ().get_object ();
+                    var day30 = root_object.get_object_member ("30Day");
+                    double value = (double) day30.get_double_member ("val");
+                    string unitAbb = (string) day30.get_string_member ("unitAbbreviation");
+                    hashrate = ((int)value).to_string () + " " + unitAbb;
+                }
+
+                appearance.get_hexcolor(
+                    get_localtime(now), 
+                    datestring, 
+                    blockheight, 
+                    min_fees,
+                    med_fees,
+                    max_fees,
+                    txcount, 
+                    satsperdollar,
+                    price,
+                    halving,
+                    hashrate
+                );
 
                 session.abort();
             } catch (Error e) {
