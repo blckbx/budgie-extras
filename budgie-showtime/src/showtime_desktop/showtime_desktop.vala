@@ -626,8 +626,9 @@ namespace  ShowTime {
                     var parser = new Json.Parser ();
                     parser.load_from_data ((string)msg6.response_body.data, -1);
                     var root_object = parser.get_root ().get_object ();
-                    string[] tmp_supply = (root_object.get_string_member ("supply")).split (".");
-                    supply = tmp_supply[0] + "." + tmp_supply[1].slice (0,2);
+                    double tmp = double.parse(root_object.get_string_member ("supply"));
+                    GLib.Intl.setlocale(GLib.LocaleCategory.ALL, "us_US.UTF-8");
+                    supply = "%'0.2f".printf(tmp);
                 }
  
                 session_external.send_message(msg7);
