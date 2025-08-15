@@ -110,7 +110,7 @@ namespace  ShowTime {
             string currtime, 
             string currdate, 
             int blockheight, 
-            int min_fees,
+            string min_fees,
             int med_fees,
             int max_fees,
             int txcount, 
@@ -147,7 +147,7 @@ namespace  ShowTime {
             }
             if(max_fees != 0 || txcount != 0){
                 feeslabel.set_markup (
-                    "<span foreground=\"" + datefontcolor + "\">⧉ " + min_fees.to_string() + " · " + 
+                    "<span foreground=\"" + datefontcolor + "\">⧉ " + min_fees + " · " + 
                                             med_fees.to_string() + " · " + max_fees.to_string() + 
                                             "  | Σ " + txcount.to_string() + " </span>"
                 );
@@ -533,7 +533,7 @@ namespace  ShowTime {
                 string datestring = now.format(dateformat);
 
                 int blockheight = 0;
-                int min_fees = 0;
+                string min_fees = "0";
                 int med_fees = 0;
                 int max_fees = 0;
                 int satsperdollar = 0;
@@ -562,8 +562,9 @@ namespace  ShowTime {
                 var msg3 = new Message ("GET", "https://bitcoinexplorer.org/api/mempool/summary");
                 var msg4 = new Message ("GET", "https://bitcoinexplorer.org/api/blockchain/next-halving");
                 var msg5 = new Message ("GET", "https://bitcoinexplorer.org/api/mining/hashrate");
-                var msg6 = new Message ("GET", "https://bitcoinexplorer.org/api/blockchain/coins");                
-                var msg7 = new Message ("GET", "https://blockchain.info/ticker");
+                var msg6 = new Message ("GET", "https://bitcoinexplorer.org/api/blockchain/coins");
+                var msg7 = new Message ("GET", "https://bitcoinexplorer.org/api/mining/next-block");              
+                var msg8 = new Message ("GET", "https://blockchain.info/ticker");
 
                 session_external.send_message(msg1);
 
@@ -582,7 +583,7 @@ namespace  ShowTime {
 
                     var root_object = parser.get_root ().get_object ();
                     var next_block = root_object.get_object_member ("nextBlock");
-                    min_fees = (int) next_block.get_int_member ("min");
+                    //min_fees = (int) next_block.get_int_member ("min");
                     max_fees = (int) next_block.get_int_member ("max");
                     med_fees = (int) next_block.get_int_member ("median");
                 }
@@ -615,9 +616,10 @@ namespace  ShowTime {
                     parser.load_from_data((string)msg5.response_body.data, -1);
                     var root_object = parser.get_root ().get_object ();
                     var week = root_object.get_object_member ("7Day");
-                    int value = (int) week.get_double_member ("val");
+                    double value = week.get_double_member ("val");
+                    GLib.Intl.setlocale(GLib.LocaleCategory.ALL, "us_US.UTF-8");
                     string unitAbb = (string) week.get_string_member ("unitAbbreviation");
-                    hashrate = value.to_string () + " " + unitAbb;
+                    hashrate = "%'0.2f".printf(value) + " " + unitAbb;
                 }
 
                 session_external.send_message(msg6);
@@ -630,12 +632,23 @@ namespace  ShowTime {
                     GLib.Intl.setlocale(GLib.LocaleCategory.ALL, "us_US.UTF-8");
                     supply = "%'0.2f".printf(tmp);
                 }
- 
-                session_external.send_message(msg7);
+
+                session_internal.send_message(msg7);
 
                 if (msg7.status_code == 200) {
                     var parser = new Json.Parser ();
                     parser.load_from_data ((string)msg7.response_body.data, -1);
+                    var root_object = parser.get_root ().get_object ();
+                    double minFeeRate = root_object.get_double_member ("minFeeRate");
+                    GLib.Intl.setlocale(GLib.LocaleCategory.ALL, "us_US.UTF-8");
+                    min_fees = "%'0.2f".printf(minFeeRate);
+                } 
+
+                session_external.send_message(msg7);
+
+                if (msg8.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg8.response_body.data, -1);
                     var root_object = parser.get_root ().get_object ();
                     var usd = root_object.get_object_member ("USD");
                     price = (int) usd.get_double_member ("last");
