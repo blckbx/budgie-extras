@@ -597,7 +597,7 @@ namespace  ShowTime {
                     var root_object = parser.get_root ().get_object ();
                     txcount = (int) root_object.get_int_member ("size");
                     mempool_max = (int) root_object.get_int_member ("maxmempool") / 1000000;
-                    mempool_usage = (int) root_object.get_int_member ("usage") / 100000;
+                    mempool_usage = (int) root_object.get_int_member ("usage") / 1000000;
                 }                
 
                 session_external.send_message(msg4);
