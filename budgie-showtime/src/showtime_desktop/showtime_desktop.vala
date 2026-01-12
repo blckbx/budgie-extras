@@ -9,6 +9,8 @@ using GtkLayerShell;
 using Wnck;
 #endif
 
+using Soup;
+using GLib;
 
 /*
 * BudgieShowTimeII
@@ -43,6 +45,15 @@ namespace  ShowTime {
     private int linespacing;
     private Label timelabel;
     private Label datelabel;
+    private Label blocklabel;
+    private Label feeslabel;
+    private Label usdpricelabel;
+    private Label eurpricelabel;
+    //private Label hashratelabel;
+    private Label mempoollabel;
+    //private Label supplylabel;
+    private Label connectionlabel;
+    private Label versionlabel;
     GLib.Settings showtime_settings;
     bool subwindow;
     string win_name;
@@ -65,10 +76,31 @@ namespace  ShowTime {
             // set fonts
             var timefont = new Pango.FontDescription().from_string(timeprops);
             var datefont = new Pango.FontDescription().from_string(dateprops);
+            var infofont = new Pango.FontDescription().from_string(dateprops);
+            int size = datefont.get_size();
+            infofont.set_size(size - 10 * Pango.SCALE);
             Pango.Context t = timelabel.get_pango_context();
             Pango.Context d = datelabel.get_pango_context();
+            Pango.Context b = blocklabel.get_pango_context();
+            Pango.Context f = feeslabel.get_pango_context();
+            Pango.Context p = usdpricelabel.get_pango_context();
+            //Pango.Context h = hashratelabel.get_pango_context();
+            Pango.Context m = mempoollabel.get_pango_context();
+            //Pango.Context s = supplylabel.get_pango_context();
+            Pango.Context e = eurpricelabel.get_pango_context();
+            Pango.Context c = connectionlabel.get_pango_context();
+            Pango.Context v = versionlabel.get_pango_context();
             t.set_font_description(timefont);
             d.set_font_description(datefont);
+            b.set_font_description(infofont);
+            f.set_font_description(infofont);
+            p.set_font_description(infofont);
+            //h.set_font_description(infofont);
+            m.set_font_description(infofont);
+            //s.set_font_description(infofont);
+            e.set_font_description(infofont);
+            c.set_font_description(infofont);
+            v.set_font_description(infofont);
             timelabel.set_margin_end (10);
             get_spacing(screen);
         }
@@ -96,17 +128,76 @@ namespace  ShowTime {
         }
 
         public void get_hexcolor(
-            string currtime, string currdate
+            string currtime, 
+            string currdate, 
+            int blockheight, 
+            string min_fees,
+            string med_fees,
+            int max_fees,
+            int txcount, 
+            int satsperdollar,
+            int usdprice,
+            int satspereur,
+            int eurprice,
+            int halving,
+            //string hashrate,
+            int mempool_max,
+            int mempool_usage,
+            //string supply,
+            int connections,
+            int connections_in,
+            int connections_out,
+            string version,
+            uint64 bytesrecv,
+            uint64 bytessent
         ) {
             timelabel.set_markup (
-                "<span foreground=\"" +
-                timefontcolor + "\">" + currtime +
-                "</span>"
+                "<span foreground=\"" + timefontcolor + "\">" + currtime + "</span>"
             );
             datelabel.set_markup (
-                "<span foreground=\"" +
-                datefontcolor + "\">" + currdate +
-                "</span>"
+                "<span foreground=\"" + datefontcolor + "\">" + currdate + "</span>" 
+            );
+            blocklabel.set_markup (
+                "<span foreground=\"" + datefontcolor + "\">⛓ " + blockheight.to_string() +
+                                                         " | ½ -" + halving.to_string() + " </span>"
+            );
+            /*
+            hashratelabel.set_markup (
+                "<span foreground=\"" + datefontcolor + "\">⚒ " + hashrate + " (7d)" + " </span>"
+            );
+            */            
+            usdpricelabel.set_markup (
+                "<span foreground=\"" + datefontcolor + "\">🗠 " + satsperdollar.to_string() + 
+                                                            " sat | $ " + usdprice.to_string() + " </span>"
+            );
+            eurpricelabel.set_markup (
+                "<span foreground=\"" + datefontcolor + "\">🗠 " + satspereur.to_string() + 
+                                                                " sat | € " + eurprice.to_string() + " </span>"
+            );
+            feeslabel.set_markup (
+                "<span foreground=\"" + datefontcolor + "\">⧉ " + min_fees + " · " + 
+                                        med_fees + " · " + max_fees.to_string() + " sat/vB </span>"
+            );
+            mempoollabel.set_markup (
+                "<span foreground=\"" + datefontcolor + "\">⊡ " + mempool_usage.to_string() + 
+                                                            " / " + mempool_max.to_string() + " MB " +
+                                                            "| Σ " + txcount.to_string() +  " </span>"
+            );
+            /*
+            supplylabel.set_markup (
+                "<span foreground=\"" + datefontcolor + "\">Σ " + supply + " </span>"
+            );
+            */
+
+            versionlabel.set_markup (
+                "<span foreground=\"" + datefontcolor + "\">🖬 Bitcoin Core " + version + " </span>"
+            );
+
+            connectionlabel.set_markup (
+                "<span foreground=\"" + datefontcolor + "\">🖧 " + connections_out.to_string() + "↑ " + 
+                                                            bytessent.to_string() + " MB | " +
+                                                            connections_in.to_string() + "↓ " +
+                                                            bytesrecv.to_string() + " MB" + " </span>"
             );
         }
     }
@@ -212,9 +303,30 @@ namespace  ShowTime {
             var maingrid = new Grid();
             timelabel = new Label("");
             datelabel = new Label("");
+            blocklabel = new Label("");
+            feeslabel = new Label("");
+            usdpricelabel = new Label("");
+            //hashratelabel = new Label("");
+            mempoollabel = new Label("");
+            //supplylabel = new Label("");
+            eurpricelabel = new Label("");
+            connectionlabel = new Label("");
+            versionlabel = new Label("");
             // position
             maingrid.attach(timelabel, 0, 0, 1, 1);
             maingrid.attach(datelabel, 0, 1, 1, 1);
+
+            // blockchain info
+            maingrid.attach(versionlabel, 0, 2, 1, 1);
+            maingrid.attach(blocklabel, 0, 3, 1, 1);
+            //maingrid.attach(supplylabel, 0, 4, 1, 1);
+            //maingrid.attach(hashratelabel, 0, 4, 1, 1);
+            maingrid.attach(mempoollabel, 0, 4, 1, 1);
+            maingrid.attach(feeslabel, 0, 5, 1, 1);
+            maingrid.attach(connectionlabel, 0, 6, 1, 1);
+            maingrid.attach(usdpricelabel, 0, 7, 1, 1);
+            maingrid.attach(eurpricelabel, 0, 8, 1, 1);
+            
             this.add(maingrid);
             string[] bind = {
                 "leftalign", "twelvehrs", /*"xposition",
@@ -582,6 +694,15 @@ namespace  ShowTime {
             if (get_leftalign()) {al = 0;}
             timelabel.xalign = al;
             datelabel.xalign = al;
+            blocklabel.xalign = al;
+            feeslabel.xalign = al;
+            usdpricelabel.xalign = al;
+            //hashratelabel.xalign = al;
+            mempoollabel.xalign = al;
+            //supplylabel.xalign = al;
+            eurpricelabel.xalign = al;
+            connectionlabel.xalign = al;
+            versionlabel.xalign = al;
             // showdate
             linespacing = showtime_settings.get_int("linespacing");
             twelvehrs = showtime_settings.get_boolean("twelvehrs");
@@ -590,9 +711,222 @@ namespace  ShowTime {
         }
 
         private void update_interface () {
-            var now = new DateTime.now_local();
-            string datestring = now.format(dateformat);
-            appearance.get_hexcolor(get_localtime(now), datestring);
+            try {            
+                var now = new DateTime.now_local();
+                string datestring = now.format(dateformat);
+
+                int blockheight = 0;
+                string min_fees = "0";
+                string med_fees = "0";
+                int max_fees = 0;
+                int satsperdollar = 0;
+                int usdprice = 0;
+                int satspereur = 0;
+                int eurprice = 0;
+                int halving = 0;
+                int txcount = 0;
+                //string hashrate = "0";
+                int mempool_max = 0;
+                int mempool_usage = 0;
+                //string supply = "0";
+                int connections = 0;
+                int connections_in = 0;
+                int connections_out = 0;
+                string version = "0";
+                uint64 bytesrecv = 0;
+                uint64 bytessent = 0;
+
+                var session_internal = new Soup.Session();
+                session_internal.ssl_strict = false;
+
+                var session_external = new Soup.Session();
+                session_external.ssl_strict = true;
+                session_external.proxy_resolver = new GLib.SimpleProxyResolver(
+                    "socks://127.0.0.1:9050",
+                    { "localhost", "127.0.0.1", null }
+                );
+
+                var msg1 = new Message ("GET", "https://192.168.178.40:4001/api/blocks/tip");
+                var msg2 = new Message ("GET", "https://192.168.178.40:4001/api/mempool/fees");
+                var msg3 = new Message ("GET", "https://192.168.178.40:4001/api/mempool/summary");
+                var msg4 = new Message ("GET", "https://192.168.178.40:4001/api/blockchain/next-halving");
+                //var msg5 = new Message ("GET", "https://192.168.178.40:4001/api/mining/hashrate");
+                //var msg6 = new Message ("GET", "https://192.168.178.40:4001/api/blockchain/coins");
+                var msg7 = new Message ("GET", "https://192.168.178.40:4001/api/mining/next-block");
+                var msg8 = new Message ("GET", "https://192.168.178.40:4001/api/networkinfo");
+                var msg9 = new Message ("GET", "https://192.168.178.40:4001/api/getnettotals");
+
+                var msg99 = new Message ("GET", "https://blockchain.info/ticker");
+
+                //msg1 = new Message ("GET", "https://192.168.178.40:4001/api/blocks/tip");
+                session_internal.send_message(msg1);
+
+                if (msg1.status_code == 200) {
+                    var parser = new Json.Parser();
+                    parser.load_from_data ((string) msg1.response_body.data, -1);
+                    var root_object = parser.get_root().get_object();
+                    blockheight = (int) root_object.get_int_member("height");
+                }
+
+                //msg2 = new Message ("GET", "https://192.168.178.40:4001/api/mempool/fees");
+                session_internal.send_message(msg2);
+
+                if (msg2.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg2.response_body.data, -1);
+
+                    var root_object = parser.get_root ().get_object ();
+                    var next_block = root_object.get_object_member ("nextBlock");
+                    //min_fees = (int) next_block.get_int_member ("min");
+                    max_fees = (int) next_block.get_int_member ("max");
+                    //med_fees = (int) next_block.get_int_member ("median");
+                }
+
+                //msg3 = new Message ("GET", "https://192.168.178.40:4001/api/mempool/summary");
+                session_internal.send_message(msg3);
+
+                if (msg3.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg3.response_body.data, -1);
+
+                    var root_object = parser.get_root ().get_object ();
+                    txcount = (int) root_object.get_int_member ("size");
+                    mempool_max = (int) root_object.get_int_member ("maxmempool") / 1000000;
+                    mempool_usage = (int) root_object.get_int_member ("usage") / 1000000;
+                }                
+
+                //msg4 = new Message ("GET", "https://192.168.178.40:4001/api/blockchain/next-halving");
+                session_internal.send_message(msg4);
+
+                if (msg4.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg4.response_body.data, -1);
+                    var root_object = parser.get_root ().get_object ();
+                    halving = (int) root_object.get_int_member("blocksUntilNextHalving");
+                }
+
+                /*
+                //msg5 = new Message ("GET", "https://192.168.178.40:4001/api/mining/hashrate");
+                session_internal.send_message(msg5);
+
+                if (msg5.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data((string)msg5.response_body.data, -1);
+                    var root_object = parser.get_root ().get_object ();
+                    var week = root_object.get_object_member ("7Day");
+                    double value = week.get_double_member ("val");
+                    GLib.Intl.setlocale(GLib.LocaleCategory.ALL, "us_US.UTF-8");
+                    string unitAbb = (string) week.get_string_member ("unitAbbreviation");
+                    hashrate = "%'0.2f".printf(value) + " " + unitAbb;
+                }
+
+                
+                //msg6 = new Message ("GET", "https;//192.168.178.40:4001/api/blockchain/coins");
+                session_internal.send_message(msg6);
+
+                if (msg6.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg6.response_body.data, -1);
+                    var root_object = parser.get_root ().get_object ();
+                    double tmp = double.parse(root_object.get_string_member ("supply"));
+                    GLib.Intl.setlocale(GLib.LocaleCategory.ALL, "us_US.UTF-8");
+                    supply = "%'0.2f".printf(tmp);
+                }
+                */
+
+                //msg7 = new Message ("GET", "https://192.168.178.40:4001/api/mining/next-block");
+                session_internal.send_message(msg7);
+
+                if (msg7.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg7.response_body.data, -1);
+                    var root_object = parser.get_root ().get_object ();
+                    double minFeeRate = root_object.get_double_member ("minFeeRate");
+                    double medFeeRate = root_object.get_double_member ("medianFeeRate");
+                    GLib.Intl.setlocale(GLib.LocaleCategory.ALL, "us_US.UTF-8");
+                    min_fees = "%'0.2f".printf(minFeeRate);
+                    med_fees = "%'0.2f".printf(medFeeRate);
+                }
+
+                //msg8 = new Message ("GET", "https://192.168.178.40:4001/api/networkinfo");
+                 session_internal.send_message(msg8);
+
+                if (msg8.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg8.response_body.data, -1);
+                    var root_object = parser.get_root ().get_object ();                    
+                    connections = (int) root_object.get_int_member ("connections");
+                    connections_out = (int) root_object.get_int_member ("connections_out");
+                    connections_in = (int) root_object.get_int_member ("connections_in");
+                    string tmp_version = ((int) root_object.get_int_member ("version")).to_string();
+                    string major = tmp_version.substring(0, 2);
+                    string minor = tmp_version.substring(3, 1);
+                    string rc = tmp_version.substring(5, 1);
+                    if (rc != "0") {
+                        version = "%s.%s-rc%s".printf(major, minor, rc);
+                    } else {
+                        version = "%s.%s".printf(major, minor);
+                    }
+                }
+
+                //msg9 = new Message ("GET", "https://192.168.178.40:4001/api/getnettotals");
+                 session_internal.send_message(msg9);
+
+                if (msg9.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg9.response_body.data, -1);
+                    var root_object = parser.get_root ().get_object ();                    
+                    bytesrecv = (uint64) root_object.get_int_member ("totalbytesrecv") / 1000000;
+                    bytessent = (uint64) root_object.get_int_member ("totalbytessent") / 1000000;
+                }                
+
+
+                //msg99 = new Message ("GET", "https://blockchain.info/ticker");
+                session_external.send_message(msg99);
+
+                if (msg99.status_code == 200) {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data ((string)msg99.response_body.data, -1);
+                    var root_object = parser.get_root ().get_object ();
+                    var usd = root_object.get_object_member ("USD");
+                    var eur = root_object.get_object_member ("EUR");
+                    usdprice = (int) usd.get_double_member ("last");
+                    satsperdollar = (int) (1.0 / usdprice * 100000000);
+                    eurprice = (int) eur.get_double_member ("last");
+                    satspereur = (int) (1.0 / eurprice * 100000000);
+                }
+
+                appearance.get_hexcolor(
+                    get_localtime(now), 
+                    datestring, 
+                    blockheight, 
+                    min_fees,
+                    med_fees,
+                    max_fees,
+                    txcount, 
+                    satsperdollar,
+                    usdprice,
+                    satspereur,
+                    eurprice,
+                    halving,
+                    //hashrate,
+                    mempool_max,
+                    mempool_usage,
+                    //supply,
+                    connections,
+                    connections_in,
+                    connections_out,
+                    version,
+                    bytesrecv,
+                    bytessent
+                );
+
+                session_internal.abort();
+                session_external.abort();
+
+            } catch (Error e) {
+                print ("Error: %s\n", e.message);
+            }                
         }
 
         private int convert_remainder_topositive (double subj, double rem) {

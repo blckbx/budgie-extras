@@ -27,8 +27,16 @@ else
     '-lm',
     '-DWNCK_I_KNOW_THIS_IS_UNSTABLE'
     ]
-
 endif
+
+BudgieShowTimeDependencies = [
+dependency('libwnck-3.0'),
+dependency('gtk+-3.0'),
+dependency('libsoup-2.4'),
+dependency('json-glib-1.0'),
+dependency('gio-2.0'),
+meson.get_compiler('c').find_library('m', required: false)
+]
 
 DesktopShowtimeValaArgs = [
 '--pkg=config',
