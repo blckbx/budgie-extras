@@ -40,6 +40,7 @@ so:
 
 namespace ShowTime {
 
+    private string bitcoin_api_url;
     private string timefontcolor;
     private string datefontcolor;
     private int linespacing;
@@ -770,18 +771,19 @@ namespace ShowTime {
                     { "localhost", "127.0.0.1", null }
                 );
 
-                var msg1 = new Message ("GET", "https://IP:PORT/api/blocks/tip");
-                var msg2 = new Message ("GET", "https://IP:PORT/api/mempool/fees");
-                var msg3 = new Message ("GET", "https://IP:PORT/api/mempool/summary");
-                var msg4 = new Message ("GET", "https://IP:PORT/api/blockchain/next-halving");
-                //var msg5 = new Message ("GET", "https://IP:PORT/api/mining/hashrate");
-                //var msg6 = new Message ("GET", "https://IP:PORT/api/blockchain/coins");
-                var msg7 = new Message ("GET", "https://IP:PORT/api/mining/next-block");
-                var msg8 = new Message ("GET", "https://IP:PORT/api/networkinfo");
-                var msg9 = new Message ("GET", "https://IP:PORT/api/getnettotals");
+                var msg1 = new Message ("GET", bitcoin_api_url + "/api/blocks/tip");
+                var msg2 = new Message ("GET", bitcoin_api_url + "/api/mempool/fees");
+                var msg3 = new Message ("GET", bitcoin_api_url + "/api/mempool/summary");
+                var msg4 = new Message ("GET", bitcoin_api_url + "/api/blockchain/next-halving");
+                //var msg5 = new Message ("GET", bitcoin_api_url + "/api/mining/hashrate");
+                //var msg6 = new Message ("GET", bitcoin_api_url + "/api/blockchain/coins");
+                var msg7 = new Message ("GET", bitcoin_api_url + "/api/mining/next-block");
+                var msg8 = new Message ("GET", bitcoin_api_url + "/api/networkinfo");
+                var msg9 = new Message ("GET", bitcoin_api_url + "/api/getnettotals");
 
                 var msg99 = new Message ("GET", "https://blockchain.info/ticker");
 
+                //msg1 = new Message ("GET", bitcoin_api_url + "/api/blocks/tip");
                 session_internal.send_message(msg1);
 
                 if (msg1.status_code == 200) {
@@ -791,7 +793,7 @@ namespace ShowTime {
                     blockheight = (int) root_object.get_int_member("height");
                 }
 
-                //msg2 = new Message ("GET", "https://IP:PORT/api/mempool/fees");
+                //msg2 = new Message ("GET", bitcoin_api_url + "/api/mempool/fees");
                 session_internal.send_message(msg2);
 
                 if (msg2.status_code == 200) {
@@ -805,7 +807,7 @@ namespace ShowTime {
                     //med_fees = (int) next_block.get_int_member ("median");
                 }
 
-                //msg3 = new Message ("GET", "https://IP:PORT/api/mempool/summary");
+                //msg3 = new Message ("GET", bitcoin_api_url + "/api/mempool/summary");
                 session_internal.send_message(msg3);
 
                 if (msg3.status_code == 200) {
@@ -818,7 +820,7 @@ namespace ShowTime {
                     mempool_usage = (int) root_object.get_int_member ("usage") / 1000000;
                 }                
 
-                //msg4 = new Message ("GET", "https://IP:PORT/api/blockchain/next-halving");
+                //msg4 = new Message ("GET", bitcoin_api_url + "/api/blockchain/next-halving");
                 session_internal.send_message(msg4);
 
                 if (msg4.status_code == 200) {
@@ -829,7 +831,7 @@ namespace ShowTime {
                 }
 
                 /*
-                //msg5 = new Message ("GET", "https://IP:PORT/api/mining/hashrate");
+                //msg5 = new Message ("GET", bitcoin_api_url + "/api/mining/hashrate");
                 session_internal.send_message(msg5);
 
                 if (msg5.status_code == 200) {
@@ -844,7 +846,7 @@ namespace ShowTime {
                 }
 
                 
-                //msg6 = new Message ("GET", "https;//IP:PORT/api/blockchain/coins");
+                //msg6 = new Message ("GET", bitcoin_api_url + "/api/blockchain/coins");
                 session_internal.send_message(msg6);
 
                 if (msg6.status_code == 200) {
@@ -857,7 +859,7 @@ namespace ShowTime {
                 }
                 */
 
-                //msg7 = new Message ("GET", "https://IP:PORT/api/mining/next-block");
+                //msg7 = new Message ("GET", bitcoin_api_url + "/api/mining/next-block");
                 session_internal.send_message(msg7);
 
                 if (msg7.status_code == 200) {
@@ -871,7 +873,7 @@ namespace ShowTime {
                     med_fees = "%'0.2f".printf(medFeeRate);
                 }
 
-                //msg8 = new Message ("GET", "https://IP:PORT/api/networkinfo");
+                //msg8 = new Message ("GET", bitcoin_api_url + "/api/networkinfo");
                  session_internal.send_message(msg8);
 
                 if (msg8.status_code == 200) {
@@ -892,7 +894,7 @@ namespace ShowTime {
                     }
                 }
 
-                //msg9 = new Message ("GET", "https://IP:PORT/api/getnettotals");
+                //msg9 = new Message ("GET", bitcoin_api_url + "/api/getnettotals");
                  session_internal.send_message(msg9);
 
                 if (msg9.status_code == 200) {
@@ -1013,6 +1015,7 @@ namespace ShowTime {
             win_name = "Showtime_".concat(args[2]);
             custom_posargs = {int.parse(args[3]), int.parse(args[4])};
         }
+        bitcoin_api_url = load_bitcoin_api_url();
         new TimeWindow(uuid);
         Gtk.main();
     }

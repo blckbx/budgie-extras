@@ -46,6 +46,7 @@ budgie_display_vala_args,
 # Build target
 showtime_desktop_sources = files(
     'showtime_desktop.vala',
+    'environment.vala',
 )
 
 executable(
