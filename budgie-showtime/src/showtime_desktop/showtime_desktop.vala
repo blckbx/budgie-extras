@@ -140,6 +140,7 @@ namespace ShowTime {
             int usdprice,
             int satspereur,
             int eurprice,
+            bool prices_stale,
             int halving,
             //string hashrate,
             int mempool_max,
@@ -167,13 +168,18 @@ namespace ShowTime {
                 "<span foreground=\"" + datefontcolor + "\">⚒ " + hashrate + " (7d)" + " </span>"
             );
             */            
+            string price_suffix = prices_stale ? " (stale)" : "";
+            string usd_text = usdprice > 0
+                ? "🗠 %d sat | $ %d%s".printf(satsperdollar, usdprice, price_suffix)
+                : "🗠 BTC/USD unavailable";
+            string eur_text = eurprice > 0
+                ? "🗠 %d sat | € %d%s".printf(satspereur, eurprice, price_suffix)
+                : "🗠 BTC/EUR unavailable";
             usdpricelabel.set_markup (
-                "<span foreground=\"" + datefontcolor + "\">🗠 " + satsperdollar.to_string() + 
-                                                            " sat | $ " + usdprice.to_string() + " </span>"
+                "<span foreground=\"" + datefontcolor + "\">" + usd_text + " </span>"
             );
             eurpricelabel.set_markup (
-                "<span foreground=\"" + datefontcolor + "\">🗠 " + satspereur.to_string() + 
-                                                                " sat | € " + eurprice.to_string() + " </span>"
+                "<span foreground=\"" + datefontcolor + "\">" + eur_text + " </span>"
             );
             feeslabel.set_markup (
                 "<span foreground=\"" + datefontcolor + "\">⧉ " + min_fees + " · " + 
@@ -210,6 +216,7 @@ namespace ShowTime {
         GLib.Settings? currpanelsubject_settings;
         bool showtime_onpanel = true;
         int next_time;
+        private PriceTicker price_ticker = new PriceTicker();
         bool twelvehrs;
         string dateformat;
         ShowTimeappearance appearance;
@@ -766,6 +773,8 @@ namespace ShowTime {
 
                 var session_external = new Soup.Session();
                 session_external.ssl_strict = true;
+                session_external.timeout = 15;
+                session_external.idle_timeout = 15;
                 session_external.proxy_resolver = new GLib.SimpleProxyResolver(
                     "socks://127.0.0.1:9050",
                     { "localhost", "127.0.0.1", null }
@@ -781,7 +790,6 @@ namespace ShowTime {
                 var msg8 = new Message ("GET", bitcoin_api_url + "/api/networkinfo");
                 var msg9 = new Message ("GET", bitcoin_api_url + "/api/getnettotals");
 
-                var msg99 = new Message ("GET", "https://blockchain.info/ticker");
 
                 //msg1 = new Message ("GET", bitcoin_api_url + "/api/blocks/tip");
                 session_internal.send_message(msg1);
@@ -906,19 +914,12 @@ namespace ShowTime {
                 }                
 
 
-                //msg99 = new Message ("GET", "https://blockchain.info/ticker");
-                session_external.send_message(msg99);
-
-                if (msg99.status_code == 200) {
-                    var parser = new Json.Parser ();
-                    parser.load_from_data ((string)msg99.response_body.data, -1);
-                    var root_object = parser.get_root ().get_object ();
-                    var usd = root_object.get_object_member ("USD");
-                    var eur = root_object.get_object_member ("EUR");
-                    usdprice = (int) usd.get_double_member ("last");
-                    satsperdollar = (int) (1.0 / usdprice * 100000000);
-                    eurprice = (int) eur.get_double_member ("last");
-                    satspereur = (int) (1.0 / eurprice * 100000000);
+                price_ticker.refresh(session_external);
+                usdprice = (int) price_ticker.usd;
+                eurprice = (int) price_ticker.eur;
+                if (usdprice > 0 && eurprice > 0) {
+                    satsperdollar = (int) (100000000.0 / price_ticker.usd);
+                    satspereur = (int) (100000000.0 / price_ticker.eur);
                 }
 
                 appearance.get_hexcolor(
@@ -933,6 +934,7 @@ namespace ShowTime {
                     usdprice,
                     satspereur,
                     eurprice,
+                    price_ticker.stale,
                     halving,
                     //hashrate,
                     mempool_max,

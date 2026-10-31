@@ -39,6 +39,11 @@ blank lines, and full-line `#` comments. Shell expansion and inline comments are
 not supported. Files are read as data, never executed. Without configuration,
 Showtime retains the `https://IP:PORT` placeholder and logs a warning.
 
+External BTC prices use Kraken's public BTC/USD and BTC/EUR last-trade prices
+through the Tor SOCKS proxy at `127.0.0.1:9050`. If the request fails, Showtime
+retains the last successful prices and marks them `(stale)`, or displays
+`unavailable` if no prices have loaded yet. Request failures are logged.
+
 Run from the repo's folder:
 
 - `mkdir build && cd build`

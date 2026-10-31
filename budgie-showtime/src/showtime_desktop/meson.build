@@ -47,6 +47,7 @@ budgie_display_vala_args,
 showtime_desktop_sources = files(
     'showtime_desktop.vala',
     'environment.vala',
+    'prices.vala',
 )
 
 executable(
@@ -59,3 +60,10 @@ executable(
     include_directories: config_inc_dir,
     install_dir: DESKTOP_INSTALL_DIR,
 )
+
+price_tests = executable(
+    'showtime-price-tests',
+    'prices.vala', 'prices_test.vala',
+    dependencies: [dependency('libsoup-2.4'), dependency('json-glib-1.0'), dependency('gio-2.0')],
+)
+test('showtime-prices', price_tests)
